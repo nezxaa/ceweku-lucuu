@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kamuu lucukk</title>
+
+  <!-- Swiper.js CSS via CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --pink-light:   #FFE4F0;
+      --pink-mid:     #FFB6D9;
+      --pink-deep:    #FF6EB4;
+      --pink-stripe:  rgba(255, 182, 217, 0.35);
+      --white:        #FFFFFF;
+      --shadow-card:  0 12px 40px rgba(255, 110, 180, 0.22), 0 2px 8px rgba(0,0,0,0.06);
+      --text-dark:    #3D1A2E;
+      --text-mid:     #7A3B5E;
+      --text-soft:    #C07098;
+      --radius-card:  18px;
+      --font-display: 'Playfair Display', serif;
+      --font-body:    'Nunito', sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: var(--font-body);
+      background: var(--pink-light);
+      color: var(--text-dark);
+    }
+
+    /* =========================================================
+       BACKGROUND — STRIPES + PARTICLE CANVAS
+    ========================================================= */
+    .bg-wrapper {
+      position: fixed; inset: 0; z-index: 0;
+      /* Vertical stripe pattern */
+      background:
+        repeating-linear-gradient(
+          to right,
+          var(--pink-stripe) 0px,
+          var(--pink-stripe) 2px,
+          transparent 2px,
+          transparent 38px
+        ),
+        linear-gradient(160deg, #FFD6ED 0%, #FFE9F5 50%, #FFC8E8 100%);
+    }
+
+    #heartCanvas {
+      position: fixed; inset: 0; z-index: 1;
+      pointer-events: none;
+    }
+
+    /* =========================================================
+       LOADING SCREEN
+    ========================================================= */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 1000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(160deg, #FF6EB4 0%, #FFB6D9 50%, #FFD6ED 100%);
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #loading-screen.fade-out {
+      opacity: 0; visibility: hidden;
+    }
+
+    .loading-icon {
+      font-size: 3.5rem;
+      animation: pulseBeat 1s ease-in-out infinite;
+      margin-bottom: 1rem;
+      filter: drop-shadow(0 0 12px rgba(255,255,255,0.6));
+    }
+    @keyframes pulseBeat {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.22); }
+    }
+
+    .loading-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      color: white;
+      font-style: italic;
+      text-shadow: 0 2px 8px rgba(180,0,100,0.3);
+      margin-bottom: 0.5rem;
+    }
+    .loading-sub {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.08em;
+      margin-bottom: 2.2rem;
+    }
+
+    /* Spinner ring */
+    .spinner-ring {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 1.8rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* "Klik untuk Buka" button — triggers audio autoplay */
+    #btn-start {
+      padding: 0.75rem 2.2rem;
+      background: white;
+      color: var(--pink-deep);
+      border: none; border-radius: 50px;
+      font-family: var(--font-body);
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      transition: transform 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.03em;
+    }
+    #btn-start:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.2); }
+    #btn-start:active { transform: scale(0.97); }
+    #btn-start .btn-icon { margin-right: 6px; }
+
+    /* =========================================================
+       MAIN STAGE
+    ========================================================= */
+    #stage {
+      position: relative; z-index: 2;
+      width: 100%; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+      gap: 1.2rem;
+    }
+
+    /* Top decorative tagline */
+    .top-tagline {
+      font-family: var(--font-display);
+      font-size: clamp(0.8rem, 2.5vw, 1rem);
+      color: var(--text-mid);
+      letter-spacing: 0.12em;
+      font-style: italic;
+      opacity: 0.85;
+    }
+
+    /* =========================================================
+       SWIPER WRAPPER
+    ========================================================= */
+    .swiper-container-wrap {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+    }
+
+    .swiper {
+      width: 100%;
+      border-radius: var(--radius-card);
+    }
+
+    /* =========================================================
+       POLAROID CARD
+    ========================================================= */
+    .polaroid-card {
+      background: var(--white);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 18px 18px 22px;
+      display: flex; flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      /* subtle top-left tape look */
+      position: relative;
+    }
+    .polaroid-card::before,
+    .polaroid-card::after {
+      content: '';
+      position: absolute;
+      width: 40px; height: 14px;
+      background: rgba(255, 182, 217, 0.55);
+      border-radius: 3px;
+      top: -6px;
+    }
+    .polaroid-card::before { left: 18px;  transform: rotate(-4deg); }
+    .polaroid-card::after  { right: 18px; transform: rotate(4deg);  }
+
+    /* Image area */
+    .card-img-wrap {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #FFE0F0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-img-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Placeholder when no img src set */
+    .card-img-wrap .img-placeholder {
+      font-size: 3.5rem;
+      opacity: 0.4;
+    }
+
+    /* Card text */
+    .card-caption {
+      width: 100%;
+      text-align: center;
+    }
+    .card-caption .slide-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+    .card-caption p {
+      font-family: var(--font-display);
+      font-size: clamp(0.9rem, 3vw, 1.05rem);
+      color: var(--text-dark);
+      line-height: 1.55;
+      font-style: italic;
+    }
+    /* First-slide name highlight */
+    .card-caption .greeting-name {
+      color: var(--pink-deep);
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    /* =========================================================
+       LAST CARD — WhatsApp message form
+    ========================================================= */
+    .wa-form {
+      width: 100%;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .wa-form label {
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .wa-form textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--pink-mid);
+      border-radius: 12px;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      color: var(--text-dark);
+      resize: none;
+      min-height: 90px;
+      outline: none;
+      background: #FFF7FB;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+    .wa-form textarea:focus { border-color: var(--pink-deep); }
+    .wa-form textarea::placeholder { color: #D4A0BB; }
+
+    #btn-send-wa {
+      padding: 0.7rem 1.5rem;
+      background: linear-gradient(135deg, #FF6EB4, #FF96C8);
+      color: white;
+      border: none; border-radius: 50px;
+      font-family: var(--font-body);
+      font-size: 0.95rem; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(255,110,180,0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    #btn-send-wa:hover  { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,110,180,0.45); }
+    #btn-send-wa:active { transform: scale(0.97); }
+
+    /* =========================================================
+       SWIPER NAVIGATION
+    ========================================================= */
+    .swiper-button-prev,
+    .swiper-button-next {
+      color: var(--pink-deep) !important;
+      background: white;
+      width: 36px !important; height: 36px !important;
+      border-radius: 50%;
+      box-shadow: 0 2px 10px rgba(255,110,180,0.25);
+      top: 50% !important;
+    }
+    .swiper-button-prev::after,
+    .swiper-button-next::after { font-size: 14px !important; font-weight: 700; }
+
+    .swiper-pagination-bullet {
+      background: var(--pink-mid) !important;
+      opacity: 0.5 !important;
+    }
+    .swiper-pagination-bullet-active {
+      background: var(--pink-deep) !important;
+      opacity: 1 !important;
+      transform: scale(1.25);
+    }
+
+    /* =========================================================
+       SLIDE TRANSITION ANIMATION (bounce in)
+    ========================================================= */
+    @keyframes bounceIn {
+      0%   { opacity: 0; transform: scale(0.88) translateY(18px); }
+      60%  { opacity: 1; transform: scale(1.04) translateY(-4px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    .swiper-slide-active .polaroid-card {
+      animation: bounceIn 0.45s cubic-bezier(.47,1.64,.41,.8) both;
+    }
+
+    /* =========================================================
+       AUDIO BUTTON (floating)
+    ========================================================= */
+    #audio-toggle {
+      position: fixed; bottom: 20px; right: 20px; z-index: 100;
+      background: white;
+      border: none; border-radius: 50%;
+      width: 44px; height: 44px;
+      box-shadow: 0 4px 14px rgba(255,110,180,0.3);
+      cursor: pointer;
+      font-size: 1.3rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    #audio-toggle:hover { transform: scale(1.1); }
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+    @media (max-width: 400px) {
+      #stage { padding: 1rem; }
+      .polaroid-card { padding: 14px 14px 18px; }
+    }
+    @media (min-height: 800px) {
+      .card-img-wrap { aspect-ratio: 3 / 2.5; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     HIDDEN AUDIO ELEMENT
+     Ganti src dengan link lagu/musik yang kamu mau.
+     Bisa dari Google Drive (direct link), GitHub Pages, atau URL publik.
+     Contoh format link langsung: https://example.com/lagu.mp3
+============================================================ -->
+<audio id="bg-music" loop preload="auto">
+  <source src="https://www.image2url.com/r2/default/audio/1782537448444-ee54ab1b-5ace-4ec1-9912-5b87039aecbe.mp3S" type="audio/mpeg" />
+  <!-- Ganti URL di atas dengan link musik pilihanmu -->
+</audio>
+
+<!-- ============================================================
+     LOADING SCREEN
+============================================================ -->
+<div id="loading-screen">
+  <div class="loading-icon">💖</div>
+  <h1 class="loading-title">Ada something buat adekk</h1>
+  <p class="loading-sub">Klik tombol di bawah untuk membuka</p>
+  <div class="spinner-ring"></div>
+  <button id="btn-start">
+    <span class="btn-icon">✨</span> Klik untuk Buka
+  </button>
+</div>
+
+<!-- ============================================================
+     FLOATING MUSIC TOGGLE
+============================================================ -->
+<button id="audio-toggle" title="Musik ON/OFF">🎵</button>
+
+<!-- ============================================================
+     HEART PARTICLE CANVAS
+============================================================ -->
+<div class="bg-wrapper"></div>
+<canvas id="heartCanvas"></canvas>
+
+<!-- ============================================================
+     MAIN STAGE
+============================================================ -->
+<div id="stage">
+  <p class="top-tagline">— maap kalo ga jelas —</p>
+
+  <!-- ── SWIPER WRAPPER ── -->
+  <div class="swiper-container-wrap">
+    <div class="swiper mySwiper">
+      <div class="swiper-wrapper">
+
+        <!-- ══════════════════════════════════════
+             SLIDE 1 — Sambutan + nama dari URL param
+        ═══════════════════════════════════════════ -->
+        <div class="swiper-slide">
+          <div class="polaroid-card">
+            <div class="card-img-wrap">
+              <!-- Ganti src dengan link gambar/GIF Slide 1 -->
+              <img src="https://i.pinimg.com/originals/2a/97/20/2a972054847bc3f0412083ac13871873.gif" alt="slide 1" />
+            </div>
+            <div class="card-caption">
+              <div class="slide-label">Hei 💌</div>
+              <p id="greeting-text">
+                Haloow, <span class="greeting-name" id="name-target">Adek</span>!<br/>
+                Aku cuma pengen ngomong sesatu ke kamuu. Geser terus ya 💕
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+             SLIDE 2
+             Ganti src img & teks sesuai keinginan
+        ═══════════════════════════════════════════ -->
+        <div class="swiper-slide">
+          <div class="polaroid-card">
+            <div class="card-img-wrap">
+              <!-- Ganti src dengan link gambar/GIF Slide 2 -->
+              <img src="https://i.pinimg.com/736x/bf/52/d0/bf52d09d5fcea89863795800ece9c441.jpg" alt="slide 2" />
+            </div>
+            <div class="card-caption">
+              <div class="slide-label"> 🌸</div>
+              <p>Aku pengen mintaa maaf soal yang tadiii :(</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+             SLIDE 3
+             Ganti src img & teks sesuai keinginan
+        ═══════════════════════════════════════════ -->
+        <div class="swiper-slide">
+          <div class="polaroid-card">
+            <div class="card-img-wrap">
+              <!-- Ganti src dengan link gambar/GIF Slide 3 -->
+              <img src="https://i.pinimg.com/736x/25/14/c6/2514c67f600f5b6acb7c9405e2aeb845.jpg" alt="slide 3" />
+            </div>
+            <div class="card-caption">
+              <div class="slide-label">Tau nggak? ✨</div>
+              <p>Aku sebenarnya ga pengen bikin adek kepikirann, jadi aku nya terlalu ovt...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+             SLIDE 4
+             Ganti src img & teks sesuai keinginan
+        ═══════════════════════════════════════════ -->
+        <div class="swiper-slide">
+          <div class="polaroid-card">
+            <div class="card-img-wrap">
+              <!-- Ganti src dengan link gambar/GIF Slide 4 -->
+              <img src="https://i.pinimg.com/736x/3f/ba/d2/3fbad2548f23f023de084c04a2b36610.jpg" alt="slide 4" />
+            </div>
+            <div class="card-caption">
+              <div class="slide-label">💖</div>
+              <p>Jadii jan marah yaakk, di dunia ini cuma kamu yang aku liatt and aku gamau kamu sedihh ૮ ˶ᵔ ᵕ ᵔ˶ ა</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
+             SLIDE TERAKHIR — Form Kirim Pesan WA
+        ═══════════════════════════════════════════ -->
+        <div class="swiper-slide">
+          <div class="polaroid-card">
+            <div class="card-img-wrap">
+              <!-- Ganti src dengan link gambar/GIF Slide Terakhir -->
+              <img src="https://i.pinimg.com/originals/6a/d0/7b/6ad07bc7872b7f4cafc7f14ad7638306.gif" alt="last slide" />
+            </div>
+            <div class="card-caption">
+              <div class="slide-label">Terima kasih 💌</div>
+              <p>Makacihh udah sabar ngeladenin cowo ga jelass inii, love u so much infintyy sayangg, sama aku terus yaaa. Replyy dongg 🌷</p>
+            </div>
+            <!-- Form Balasan WA -->
+            <div class="wa-form">
+              <label for="wa-message">Tulis di sini</label>
+              <textarea
+                id="wa-message"
+                placeholder="Tulis balasan pesanmu di sini yakkk..."
+                rows="3"
+              ></textarea>
+              <button id="btn-send-wa" onclick="kirimPesanWA()">
+                <span>💬</span> Kirim Pesan
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end swiper-wrapper -->
+
+      <!-- Navigation -->
+      <div class="swiper-button-prev"></div>
+      <div class="swiper-button-next"></div>
+      <div class="swiper-pagination"></div>
+    </div><!-- end swiper -->
+  </div><!-- end swiper-container-wrap -->
+
+</div><!-- end #stage -->
+
+
+<!-- ============================================================
+     SWIPER JS via CDN
+============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+<script>
+/* ============================================================
+   1. URL PARAMETER — Baca ?untuk=NamaTarget
+   Contoh URL: https://namadomain.com/?untuk=Sarah
+   Maka halaman akan menampilkan "Hei, Sarah!"
+============================================================ */
+(function readURLParam() {
+  const params = new URLSearchParams(window.location.search);
+  const namaTarget = params.get('untuk');
+  if (namaTarget) {
+    const el = document.getElementById('name-target');
+    if (el) el.textContent = namaTarget;
+  }
+})();
+
+
+/* ============================================================
+   2. AUDIO CONTROL
+   Musik diputar saat tombol "Klik untuk Buka" diklik.
+   Floating button kiri bawah untuk mute/unmute.
+============================================================ */
+const music      = document.getElementById('bg-music');
+const audioBtn   = document.getElementById('audio-toggle');
+let   musicMuted = false;
+
+function startMusic() {
+  music.volume = 0.5;
+  music.play().catch(() => {/* browser block silently handled */});
+}
+
+audioBtn.addEventListener('click', () => {
+  musicMuted = !musicMuted;
+  music.muted   = musicMuted;
+  audioBtn.textContent = musicMuted ? '🔇' : '🎵';
+});
+
+
+/* ============================================================
+   3. LOADING SCREEN — fade out saat "Klik untuk Buka" diklik
+============================================================ */
+document.getElementById('btn-start').addEventListener('click', () => {
+  startMusic();
+  const screen = document.getElementById('loading-screen');
+  screen.classList.add('fade-out');
+  // Hapus dari DOM setelah animasi selesai agar tidak menghalangi klik
+  setTimeout(() => { screen.style.display = 'none'; }, 900);
+});
+
+
+/* ============================================================
+   4. SWIPER.JS INIT
+   Efek transisi: 'slide' bawaan Swiper (smooth + touch support)
+   Efek bounce card ditangani CSS keyframe bounceIn
+============================================================ */
+const swiper = new Swiper('.mySwiper', {
+  loop: false,
+  speed: 480,
+  grabCursor: true,
+  centeredSlides: true,
+  spaceBetween: 20,
+
+  // Efek: bisa diganti 'fade' atau 'coverflow'
+  effect: 'slide',
+
+  // Pagination dots
+  pagination: {
+    el: '.swiper-pagination',
+    clickable: true,
+  },
+
+  // Nav arrows
+  navigation: {
+    nextEl: '.swiper-button-next',
+    prevEl: '.swiper-button-prev',
+  },
+
+  // Keyboard support
+  keyboard: { enabled: true },
+
+  // Autoplay (opsional, hilangkan komentar jika mau otomatis geser)
+  // autoplay: { delay: 4000, disableOnInteraction: false },
+
+  // Responsive breakpoints
+  breakpoints: {
+    480: { slidesPerView: 1 },
+  },
+});
+
+
+/* ============================================================
+   5. KIRIM PESAN KE WHATSAPP
+   ⚠️  GANTI NOMOR_WA_KAMU di bawah dengan nomor WhatsApp kamu
+   Format: kode negara + nomor tanpa 0 di depan
+   Contoh Indonesia: 628123456789
+============================================================ */
+function kirimPesanWA() {
+  /* ↓↓↓ GANTI NOMOR DI SINI ↓↓↓ */
+  const nomorWA = '6282231371027';
+  /* ↑↑↑ GANTI NOMOR DI SINI ↑↑↑ */
+
+  const pesanInput = document.getElementById('wa-message');
+  const pesanUser  = pesanInput.value.trim();
+
+  // Jika kolom kosong, gunakan pesan default
+  const pesanFinal = pesanUser !== ''
+    ? pesanUser
+    : 'Ihh ga di isi pesanyaa';
+
+  // URL-encode agar spasi, enter, emoji terbaca benar di WhatsApp
+  const pesanEncoded = encodeURIComponent(pesanFinal);
+
+  const urlWA = `https://wa.me/${nomorWA}?text=${pesanEncoded}`;
+  window.open(urlWA, '_blank');
+}
+
+
+/* ============================================================
+   6. HEART PARTICLE CANVAS — animasi hati berjatuhan
+============================================================ */
+(function initHearts() {
+  const canvas = document.getElementById('heartCanvas');
+  const ctx    = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Heart shape path helper
+  function drawHeart(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 30, size / 30);
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.bezierCurveTo(-15, -20, -30, -5, 0, 15);
+    ctx.bezierCurveTo(30, -5, 15, -20, 0, -5);
+    ctx.closePath();
+    ctx.restore();
+  }
+
+  // Particle pool
+  const COLORS = ['#FF6EB4','#FFB6D9','#FF96C8','#FF3D9A','#FFD6ED','#e91e8c'];
+  const particles = [];
+  const COUNT = 38;
+
+  function randomBetween(a, b) { return a + Math.random() * (b - a); }
+
+  function createParticle() {
+    return {
+      x:       randomBetween(0, window.innerWidth),
+      y:       randomBetween(-80, -20),
+      size:    randomBetween(8, 20),
+      speedY:  randomBetween(0.4, 1.1),
+      speedX:  randomBetween(-0.4, 0.4),
+      opacity: randomBetween(0.25, 0.7),
+      color:   COLORS[Math.floor(Math.random() * COLORS.length)],
+      wobble:  randomBetween(0, Math.PI * 2),
+      wobbleSpeed: randomBetween(0.01, 0.035),
+    };
+  }
+
+  for (let i = 0; i < COUNT; i++) {
+    const p = createParticle();
+    p.y = randomBetween(-window.innerHeight, window.innerHeight); // scatter on load
+    particles.push(p);
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const p of particles) {
+      p.y       += p.speedY;
+      p.wobble  += p.wobbleSpeed;
+      p.x       += Math.sin(p.wobble) * 0.7 + p.speedX;
+
+      // Reset when out of screen
+      if (p.y > window.innerHeight + 40) {
+        p.y = randomBetween(-60, -10);
+        p.x = randomBetween(0, window.innerWidth);
+      }
+
+      // Draw
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle   = p.color;
+      drawHeart(ctx, p.x, p.y, p.size);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+
+  tick();
+})();
+</script>
+
+</body>
+</html>
